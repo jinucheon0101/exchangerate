@@ -41,8 +41,11 @@
       <option value="HKD">HKD</option>
       <option value="THB">THB</option>
     </select><br/>
-    금액: <input type="number" id="amountInput" value="1000" oninput="calculateRates()" />
-    <div id="result"></div>
+    금액: <input type="number" id="amountInput" value="1000" />
+    <button onclick="calculateRates()">조회</button>
+    <div id="result">
+      <p>조회 버튼을 눌러 환율 계산 결과를 확인하세요.</p>
+    </div>
   </div>
 
   <div id="budgetTab" class="content">
@@ -107,22 +110,27 @@
         .then(res => res.json())
         .then(data => {
           window.latestRates = data.rates;
-          calculateRates();
+          document.getElementById("result").innerHTML = "<p>조회 버튼을 눌러 환율 계산 결과를 확인하세요.</p>";
+        })
+        .catch(() => {
+          document.getElementById("result").innerHTML = "<p>환율 데이터를 불러오지 못했습니다.</p>";
         });
     }
 
     function calculateRates() {
       const amount = parseFloat(document.getElementById("amountInput").value);
-      const base = document.getElementById("baseCurrency").value;
       const result = document.getElementById("result");
-      if (!window.latestRates) return;
+      if (!window.latestRates) {
+        result.innerHTML = "<p>환율 데이터를 아직 불러오지 못했습니다.</p>";
+        return;
+      }
       result.innerHTML = "<table class='exchange-table'><tr><th>통화</th><th>금액</th><th>소비 예시</th></tr>" +
         Object.entries(window.latestRates)
           .filter(([code]) => Object.keys(consumptionExamples).includes(code))
           .map(([code, rate]) => {
             const converted = amount * rate;
-            const item = consumptionExamples[code].find(e => converted < e.limit)?.item || "식사 1회";
-            return `<tr><td>${code}</td><td>${converted.toFixed(2)}</td><td>${item}</td></tr>`;
+            const example = consumptionExamples[code].find(e => converted < e.limit)?.item || "식사 1회";
+            return `<tr><td>${code}</td><td>${converted.toFixed(2)}</td><td>${example}</td></tr>`;
           })
           .join("") + "</table>";
     }
@@ -169,3 +177,4 @@
   </script>
 </body>
 </html>
+
