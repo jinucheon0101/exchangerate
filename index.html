@@ -11,9 +11,11 @@
   <pre id="output"></pre>
 
   <script>
+    const apiKey = "545f6b90b06bc92b2dc5e651297f7a84";
+
     document.getElementById('fetchBtn').addEventListener('click', () => {
       console.log('환율 데이터 요청 시작');
-      fetch('https://api.exchangerate.host/latest?base=KRW')
+      fetch(`https://api.exchangerate.host/latest?base=KRW&access_key=${apiKey}`)
         .then(response => response.json())
         .then(data => {
           console.log('환율 데이터 도착:', data);
