@@ -2,179 +2,30 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>환율 & 가계부</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <style>
-    body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
-    .tabs { display: flex; justify-content: center; background: #333; color: white; }
-    .tab { padding: 15px 30px; cursor: pointer; }
-    .tab.active { background: #555; }
-    .content { display: none; padding: 20px; }
-    .content.active { display: block; }
-    input, select, button { margin: 5px 0; padding: 8px; width: 100%; max-width: 300px; }
-    .exchange-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    .exchange-table th, .exchange-table td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    .hint { color: gray; font-size: 0.9em; margin-top: 8px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>환율 API 테스트</title>
 </head>
 <body>
-  <div class="tabs">
-    <div class="tab active" onclick="showTab(0)">환율</div>
-    <div class="tab" onclick="showTab(1)">가계부</div>
-  </div>
-
-  <div id="exchangeTab" class="content active">
-    <h2>환율 계산기</h2>
-    기준 통화 선택:
-    <select id="baseCurrency" onchange="fetchRates()">
-      <option value="KRW">KRW</option>
-      <option value="USD">USD</option>
-      <option value="EUR">EUR</option>
-      <option value="GBP">GBP</option>
-      <option value="JPY">JPY</option>
-      <option value="VND">VND</option>
-      <option value="PHP">PHP</option>
-      <option value="IDR">IDR</option>
-      <option value="HKD">HKD</option>
-      <option value="THB">THB</option>
-    </select><br/>
-    금액: <input type="number" id="amountInput" value="1000" />
-    <button onclick="calculateRates()">조회</button>
-    <div id="result">
-      <p>조회 버튼을 눌러 환율 계산 결과를 확인하세요.</p>
-    </div>
-  </div>
-
-  <div id="budgetTab" class="content">
-    <div id="authSection">
-      <h2>로그인 / 회원가입</h2>
-      <input type="text" id="regEmail" placeholder="아이디 (이메일)" />
-      <input type="password" id="regPassword" placeholder="비밀번호 (4자 이상)" />
-      <input type="text" id="regNickname" placeholder="닉네임" />
-      <select id="regCurrency">
-        <option value="KRW">KRW</option>
-        <option value="USD">USD</option>
-      </select>
-      <button onclick="register()">회원가입</button>
-
-      <input type="text" id="loginEmail" placeholder="아이디 (이메일)" />
-      <input type="password" id="loginPassword" placeholder="비밀번호" />
-      <button onclick="login()">로그인</button>
-    </div>
-
-    <div id="budgetSection" style="display:none;">
-      <h3>가계부 기록</h3>
-      <input type="text" id="expenseCategory" placeholder="지출 항목" />
-      <input type="number" id="expenseAmount" placeholder="금액" />
-      <button onclick="addExpense()">저장</button>
-      <ul id="expenseList"></ul>
-    </div>
-  </div>
+  <h1>환율 API 테스트</h1>
+  <button id="fetchBtn">환율 데이터 받아오기</button>
+  <pre id="output"></pre>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBIN7ej4EFVtilNKxQ67C5_WyJ7-xPsn9E",
-      authDomain: "currency-project-1c0a7.firebaseapp.com",
-      projectId: "currency-project-1c0a7",
-      storageBucket: "currency-project-1c0a7.firebasestorage.app",
-      messagingSenderId: "475839323558",
-      appId: "1:475839323558:web:bc9ade91af6dfe62330367"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    const consumptionExamples = {
-      KRW: [{ limit: 2000, item: "편의점 삼각김밥" }, { limit: 5000, item: "김밥천국 라면" }, { limit: 10000, item: "브런치 1인분" }],
-      USD: [{ limit: 2, item: "맥도날드 커피" }, { limit: 5, item: "버거킹 햄버거" }, { limit: 10, item: "푸드트럭 타코" }],
-      EUR: [{ limit: 2, item: "에스프레소 한 잔" }, { limit: 5, item: "베이커리 크로와상" }, { limit: 10, item: "점심 도시락" }],
-      GBP: [{ limit: 3, item: "사과 한 개" }, { limit: 6, item: "샌드위치 하나" }, { limit: 10, item: "피쉬앤칩스 소형" }],
-      JPY: [{ limit: 300, item: "편의점 주먹밥" }, { limit: 700, item: "규동 미니" }, { limit: 1200, item: "카레라이스" }],
-      VND: [{ limit: 20000, item: "로컬 커피" }, { limit: 50000, item: "쌀국수 한 그릇" }, { limit: 100000, item: "분짜 세트" }],
-      PHP: [{ limit: 30, item: "로컬 사이다" }, { limit: 70, item: "길거리 간식" }, { limit: 150, item: "패스트푸드 정식" }],
-      IDR: [{ limit: 10000, item: "물 한 병" }, { limit: 25000, item: "나시고랭" }, { limit: 50000, item: "인도네시아 정식" }],
-      HKD: [{ limit: 10, item: "에그타르트 2개" }, { limit: 20, item: "딤섬 작은 접시" }, { limit: 40, item: "면 요리 1인분" }],
-      THB: [{ limit: 30, item: "로컬 콜라" }, { limit: 60, item: "팟타이 한 접시" }, { limit: 120, item: "마사지 30분" }]
-    };
-
-    function showTab(index) {
-      document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", i === index));
-      document.querySelectorAll(".content").forEach((c, i) => c.classList.toggle("active", i === index));
-    }
-
-    function fetchRates() {
-      const base = document.getElementById("baseCurrency").value;
-      fetch(`https://api.exchangerate.host/latest?base=${base}`)
-        .then(res => res.json())
+    document.getElementById('fetchBtn').addEventListener('click', () => {
+      console.log('환율 데이터 요청 시작');
+      fetch('https://api.exchangerate.host/latest?base=KRW')
+        .then(response => response.json())
         .then(data => {
-          window.latestRates = data.rates;
-          document.getElementById("result").innerHTML = "<p>조회 버튼을 눌러 환율 계산 결과를 확인하세요.</p>";
+          console.log('환율 데이터 도착:', data);
+          document.getElementById('output').textContent = JSON.stringify(data, null, 2);
         })
-        .catch(() => {
-          document.getElementById("result").innerHTML = "<p>환율 데이터를 불러오지 못했습니다.</p>";
+        .catch(error => {
+          console.error('환율 데이터 요청 실패:', error);
+          document.getElementById('output').textContent = '데이터 요청 실패: ' + error;
         });
-    }
-
-    function calculateRates() {
-      const amount = parseFloat(document.getElementById("amountInput").value);
-      const result = document.getElementById("result");
-      if (!window.latestRates) {
-        result.innerHTML = "<p>환율 데이터를 아직 불러오지 못했습니다.</p>";
-        return;
-      }
-      result.innerHTML = "<table class='exchange-table'><tr><th>통화</th><th>금액</th><th>소비 예시</th></tr>" +
-        Object.entries(window.latestRates)
-          .filter(([code]) => Object.keys(consumptionExamples).includes(code))
-          .map(([code, rate]) => {
-            const converted = amount * rate;
-            const example = consumptionExamples[code].find(e => converted < e.limit)?.item || "식사 1회";
-            return `<tr><td>${code}</td><td>${converted.toFixed(2)}</td><td>${example}</td></tr>`;
-          })
-          .join("") + "</table>";
-    }
-
-    function register() {
-      const email = document.getElementById("regEmail").value;
-      const password = document.getElementById("regPassword").value;
-      const nickname = document.getElementById("regNickname").value;
-      const currency = document.getElementById("regCurrency").value;
-      firebase.auth().createUserWithEmailAndPassword(email, password)
-        .then(cred => db.collection("users").doc(cred.user.uid).set({
-          nickname, preferredCurrency: currency
-        }))
-        .then(() => alert("회원가입 성공"))
-        .catch(err => alert(err.message));
-    }
-
-    function login() {
-      const email = document.getElementById("loginEmail").value;
-      const password = document.getElementById("loginPassword").value;
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .then(() => {
-          document.getElementById("authSection").style.display = "none";
-          document.getElementById("budgetSection").style.display = "block";
-        })
-        .catch(err => alert(err.message));
-    }
-
-    function addExpense() {
-      const user = firebase.auth().currentUser;
-      const category = document.getElementById("expenseCategory").value;
-      const amount = document.getElementById("expenseAmount").value;
-      if (!user) return alert("로그인 필요");
-      db.collection("expenses").add({
-        uid: user.uid, category, amount: parseFloat(amount), date: new Date()
-      }).then(() => {
-        const li = document.createElement("li");
-        li.textContent = `${category}: ${amount}원`;
-        document.getElementById("expenseList").appendChild(li);
-      });
-    }
-
-    fetchRates();
+    });
   </script>
 </body>
 </html>
+
 
